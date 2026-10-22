@@ -1,0 +1,24 @@
+# data and caches (never commit medical images)
+cache/
+cache_smoke/
+synthetic_rsna/
+*.dcm
+*.npy
+
+# experiment outputs: keep results.json and figures, drop weights & raw predictions
+outputs*/models/
+outputs*/preds/
+outputs*/demo_samples/
+outputs_smoke/
+predictions/
+*.pt
+*.pkl
+*.npz
+*.zip
+
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.pytest_cache/
+.gradio/
+flagged/
