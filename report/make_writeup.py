@@ -100,6 +100,16 @@ def build_tex(R: dict, figdir: str) -> str:
         "PC_EP": str(cfg["paper_cnn_epochs"]), "DET_EP": str(cfg["det_epochs"]), "DET_SIZE": str(cfg["det_size"]),
         "TRAIN_MIN": f"{train_min:.0f}", "TOTAL_MIN": f"{sum(v for k, v in t.items() if k.startswith('stage_')):.0f}",
         "FIG": figdir,
+        "PC_REC": f(pc.get("recall")), "DF_REC": f(df_.get("recall")),
+        "D_FN": str(d.get("confusion", {}).get("fn", "--")), "PC_FN": str(pc.get("confusion", {}).get("fn", "--")),
+        "FN_DROP": (f"{100*(1-d['confusion']['fn']/pc['confusion']['fn']):.0f}" if d.get("confusion") and pc.get("confusion") and pc["confusion"]["fn"] else "--"),
+        "PCAM_IOU": f(LP.get("PaperCNN+CAM", {}).get("test", {}).get("mean_iou")),
+        "CAM_MAP": f(cam.get("test", {}).get("rsna_map")),
+        "CAM_GAIN": (f"{cam['test']['mean_iou']/0.1508:.1f}" if cam else "--"),
+        "DET_IOU_FULL": f(LF.get("FasterRCNN", {}).get("test", {}).get("mean_iou")),
+        "DET_MAP_FULL": f(LF.get("FasterRCNN", {}).get("test", {}).get("rsna_map")),
+        "G_IOU_FULL": f(LF.get("DenseNet-gated FasterRCNN", {}).get("test", {}).get("mean_iou")),
+        "G_MAP_FULL": f(LF.get("DenseNet-gated FasterRCNN", {}).get("test", {}).get("rsna_map")),
     }
     tex = TEMPLATE
     for k, v in V.items():
@@ -119,6 +129,8 @@ TEMPLATE = r"""
 \setlist{nosep,leftmargin=1.1em}
 \setlength{\parskip}{1.5pt}\setlength{\parindent}{0pt}
 \renewcommand{\arraystretch}{1.05}
+\makeatletter\setlength{\@fptop}{0pt}\setlength{\@fpsep}{6pt}\makeatother
+\setlength{\textfloatsep}{8pt}\setlength{\floatsep}{6pt}
 \begin{document}
 \twocolumn[{\begin{center}
 {\Large\bfseries Pneumonia Diagnosis, Detection and Localization on Chest X-rays}\\[3pt]
@@ -205,15 +217,19 @@ Method & Labels & mIoU & mIoU orc. & mAP & mAP (full)\\
 \end{table}
 
 \section{Results}
-\textbf{Diagnosis.} In the paper setting the pretrained DenseNet-121 reaches <<D_ACC>> accuracy and <<D_AUC>> ROC-AUC
-(recall <<D_REC>>, specificity <<D_SPEC>>), against <<PC_ACC>> for our from-scratch replication of the report's CNN
-and 0.925 reported. Pixel-based baselines are far behind, as in the report. On the full dataset accuracy
-drops to <<DF_ACC>> (AUC <<DF_AUC>>), because ``not normal'' lungs also show opacities.
+\textbf{Diagnosis.} Our from-scratch replication of the report's CNN reaches <<PC_ACC>> test accuracy (report: 0.925),
+and the pretrained DenseNet-121 improves this to <<D_ACC>> accuracy and <<D_AUC>> ROC-AUC. The clinically important
+gain is recall: <<D_REC>> vs.\ <<PC_REC>>, i.e.\ <<D_FN>> instead of <<PC_FN>> missed pneumonia cases out of 902.
+All three pixel baselines stay below 0.88 accuracy. On the full dataset every model drops (DenseNet: <<DF_ACC>>
+accuracy, <<DF_AUC>> AUC, recall <<DF_REC>>) because ``not normal'' lungs also look cloudy.
 
-\textbf{Localization.} CAM boxes from DenseNet (cut-off <<CAM_THR>> of the map maximum) give a mean IoU of <<CAM_IOU>>
-(<<CAM_ORC>> if every pneumonia image is localized), with no box labels used. The supervised Faster R-CNN reaches
-<<DET_IOU>> mean IoU and <<DET_MAP>> RSNA mAP; gating it with the classifier (gate <<G_GATE>>, score $\geq$ <<G_SC>>)
-gives <<G_MAP>> mAP. The best mean IoU, <<BEST_IOU>> (<<BEST_IOU_NAME>>), is <<IOU_GAIN>>$\times$ the report's 0.151.
+\textbf{Localization.} Without any box labels, CAM boxes reach a mean IoU of <<PCAM_IOU>> (paper CNN) and
+<<CAM_IOU>> (DenseNet, cut-off <<CAM_THR>> of the map maximum), already <<CAM_GAIN>>$\times$ the report's 0.151.
+CAM boxes are coarse and often cover a whole lung, so their RSNA mAP is low (<<CAM_MAP>>). The supervised Faster
+R-CNN localizes much more tightly: <<DET_IOU>> mean IoU and <<DET_MAP>> RSNA mAP, <<IOU_GAIN>>$\times$ the report's
+0.151. Gating it with DenseNet raises the RSNA mAP slightly (<<G_MAP>> paper, <<G_MAP_FULL>> vs.\ <<DET_MAP_FULL>>
+full) but lowers mean IoU in the full setting (<<G_IOU_FULL>> vs.\ <<DET_IOU_FULL>>), because every pneumonia image the
+classifier rejects scores 0: it trades missed cases for fewer false alarms.
 
 \begin{figure}[t]
 \centering
@@ -227,16 +243,46 @@ gives <<G_MAP>> mAP. The best mean IoU, <<BEST_IOU>> (<<BEST_IOU_NAME>>), is <<I
 \caption{Test X-rays. Red: ground truth; blue: DenseNet CAM boxes (weakly supervised); green: Faster R-CNN.}
 \end{figure}
 
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.49\linewidth]{<<FIG>>/roc_paper.png}\hfill
+\includegraphics[width=0.49\linewidth]{<<FIG>>/roc_full.png}
+\caption{ROC curves on the test split: paper setting (left) and full setting (right).}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{<<FIG>>/training_curves.png}
+\caption{Training loss and validation ROC-AUC per epoch (solid: paper setting, dashed: full setting).}
+\end{figure}
+
+
+
+\section{Error analysis}
+\begin{itemize}
+\item \textbf{CAM boxes are too large.} The heat-map of a 12$\times$12 feature grid spreads over most of a lung, so CAM
+boxes often contain the opacity but are 2--3$\times$ too big (Fig.~2). This caps their IoU and makes them fail the
+stricter RSNA thresholds ($\geq$0.4 IoU).
+\item \textbf{Bilateral cases.} When both lungs are affected, CAM often lights up only the stronger side, and the detector
+sometimes finds only one of the two boxes.
+\item \textbf{Small, faint opacities}, e.g.\ near the diaphragm, get a lower classifier probability and can be missed by
+the detector or placed in the other lung by CAM; such cases score IoU 0.
+\item \textbf{Overfitting.} DenseNet's training loss keeps falling while validation AUC peaks around epoch 7 (Fig.~4);
+selecting the best validation epoch avoids using the overfitted weights.
+\end{itemize}
+
 \section{Conclusions}
 \begin{itemize}
-\item Transfer learning matters most: an ImageNet-pretrained DenseNet at higher resolution beats the report's
-from-scratch CNN on diagnosis, and its CAMs localize better.
-\item Weak supervision gives useful heat-maps without any box labels, but CAM boxes are coarse; a detector trained on
-boxes localizes more tightly, and gating it with the classifier removes most false alarms on healthy lungs.
-\item The full 3-class setting is clearly harder than the report's 2-class setting, so the report's numbers
-overstate real-world performance.
-\item Limitations / future work: 1024\,px inputs, lung segmentation, test-time augmentation, ensembling,
-Grad-CAM++ and a radiologist-checked error analysis. Educational project, not a medical device.
+\item We reproduced the reference report and beat both of its headline numbers: <<D_ACC>> vs.\ 0.925 accuracy and
+<<DET_IOU>> vs.\ 0.151 mean IoU.
+\item Pretraining helps diagnosis most where it matters clinically: DenseNet-121 misses <<FN_DROP>>\% fewer pneumonia
+cases than the from-scratch CNN.
+\item Weak supervision works: CAM boxes from image labels alone beat the report's supervised R-CNN (0.127). Box labels
+still pay off: Faster R-CNN is far tighter than any CAM box.
+\item The realistic full setting is clearly harder (AUC <<DF_AUC>> vs.\ <<D_AUC>>), so results on the report's
+2-class subset overstate real-world performance.
+\item Limitations / future work: full 1024\,px inputs, lung segmentation, test-time augmentation and ensembling,
+Grad-CAM++ for sharper maps, and a radiologist-checked error analysis. Educational project, not a medical device.
 \end{itemize}
 
 {\footnotesize\textbf{References.} [1] Huang et al., Weakly Supervised Pneumonia Localization, CS229 2018.
