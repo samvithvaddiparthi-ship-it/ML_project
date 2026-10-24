@@ -1,0 +1,65 @@
+{
+  "data_dir": "/kaggle/input/competitions/rsna-pneumonia-detection-challenge",
+  "cache_dir": "/tmp/cache",
+  "out_dir": "/kaggle/working/outputs",
+  "cache_size": 512,
+  "split_fracs": [
+    0.7,
+    0.15,
+    0.15
+  ],
+  "seed": 42,
+  "limit": null,
+  "num_workers": 4,
+  "baseline_size": 64,
+  "baseline_pca": 150,
+  "baseline_max_train": 12000,
+  "paper_cnn_size": 128,
+  "paper_cnn_epochs": 20,
+  "paper_cnn_lr": 0.0001,
+  "paper_cnn_batch": 64,
+  "densenet_size": 384,
+  "densenet_epochs": 10,
+  "densenet_lr": 0.0003,
+  "densenet_batch": 32,
+  "pretrained": true,
+  "cam_thresholds": [
+    0.1,
+    0.15,
+    0.2,
+    0.25,
+    0.3,
+    0.4,
+    0.5,
+    0.6,
+    0.7,
+    0.8
+  ],
+  "cam_min_area_frac": 0.01,
+  "cam_max_boxes": 3,
+  "det_size": 512,
+  "det_epochs": 6,
+  "det_lr": 0.01,
+  "det_batch": 8,
+  "det_neg_ratio": 1.0,
+  "det_score_thresholds": [
+    0.3,
+    0.4,
+    0.5,
+    0.6,
+    0.7,
+    0.8
+  ],
+  "gate_thresholds": [
+    0.2,
+    0.3,
+    0.4,
+    0.5,
+    0.6
+  ],
+  "settings": [
+    "paper",
+    "full"
+  ],
+  "run_detector": true
+}
