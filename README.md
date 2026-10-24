@@ -1,7 +1,7 @@
 # Pneumonia Diagnosis, Detection and Localization on Chest X-rays
 
-**UE24CS352A Machine Learning · Mini Project** · PES University
-**Team:** Samvith Vaddiparthi (PES1UG24AM468) · Sanjit C (PES1UG24AM448)
+**UE24CS352A Machine Learning · Mini Project** · PES University  
+**Team:** Samvith Vaddiparthi (PES1UG24AM468) · Sanjit C (PES1UG24AM448)  
 **Problem statement:** *Pneumonia Diagnosis Detection and Localization* (Stanford CS229 list, #34)
 
 Given a chest X-ray, we (1) **diagnose** whether it shows pneumonia and (2) **localize** the lung
@@ -22,8 +22,52 @@ RSNA competition metric.
 <!-- RESULTS:START -->
 ## Results
 
-Results are written to `outputs/results.json` by the pipeline; run `python scripts/update_readme_results.py`
-after training to fill this section with the numbers from your run.
+Held-out test split: 4,003 images in the full setting, 2,229 in the paper setting (dataset: 26,684 images, 9,555 boxes). Every threshold was chosen on the validation split.
+
+### Classification - Normal vs Pneumonia (paper setting)
+
+| Model | Accuracy | Precision | Recall | Specificity | F1 | ROC-AUC | Report acc. |
+|---|---|---|---|---|---|---|---|
+| Logistic Regression | 0.832 | 0.822 | 0.746 | 0.890 | 0.782 | 0.899 | 0.730 |
+| SVM (RBF) | 0.879 | 0.897 | 0.793 | 0.938 | 0.842 | 0.943 | 0.582 |
+| Random Forest | 0.862 | 0.864 | 0.782 | 0.916 | 0.821 | 0.930 | 0.830 |
+| Paper-style CNN | 0.936 | 0.936 | 0.905 | 0.958 | 0.920 | 0.979 | 0.925 |
+| DenseNet-121 (pretrained) | 0.948 | 0.921 | 0.955 | 0.944 | 0.937 | 0.987 | - |
+
+### Classification - Pneumonia vs all (full dataset)
+
+| Model | Accuracy | Precision | Recall | Specificity | F1 | ROC-AUC | Report acc. |
+|---|---|---|---|---|---|---|---|
+| Logistic Regression | 0.794 | 0.582 | 0.302 | 0.937 | 0.397 | 0.782 | - |
+| SVM (RBF) | 0.807 | 0.643 | 0.326 | 0.947 | 0.433 | 0.781 | - |
+| Random Forest | 0.806 | 0.646 | 0.307 | 0.951 | 0.416 | 0.800 | - |
+| Paper-style CNN | 0.810 | 0.561 | 0.720 | 0.837 | 0.631 | 0.865 | - |
+| DenseNet-121 (pretrained) | 0.835 | 0.616 | 0.715 | 0.870 | 0.662 | 0.887 | - |
+
+### Localization - Normal vs Pneumonia (paper setting)
+
+| Method | Supervision | mean IoU | mean IoU (oracle) | RSNA mAP | pneumonia images with a box |
+|---|---|---|---|---|---|
+| *Report: R-CNN* | boxes | 0.127 | - | - | - |
+| *Report: CNN + CAM* | image labels | 0.151 | 0.379 | - | - |
+| PaperCNN+CAM | weakly supervised | 0.253 | 0.260 | 0.038 | 90% |
+| DenseNet121+CAM | weakly supervised | 0.308 | 0.312 | 0.104 | 95% |
+| FasterRCNN | supervised | 0.446 | - | 0.370 | 86% |
+| DenseNet-gated FasterRCNN | supervised + classifier gate | 0.444 | - | 0.374 | 85% |
+
+### Localization - Pneumonia vs all (full dataset)
+
+| Method | Supervision | mean IoU | mean IoU (oracle) | RSNA mAP | pneumonia images with a box |
+|---|---|---|---|---|---|
+| PaperCNN+CAM | weakly supervised | 0.232 | 0.264 | 0.019 | 72% |
+| DenseNet121+CAM | weakly supervised | 0.225 | 0.255 | 0.060 | 72% |
+| FasterRCNN | supervised | 0.400 | - | 0.227 | 76% |
+| DenseNet-gated FasterRCNN | supervised + classifier gate | 0.358 | - | 0.239 | 67% |
+
+![comparison](outputs/figures/paper_comparison.png)
+
+![examples](outputs/figures/localization_examples_paper.png)
+
 <!-- RESULTS:END -->
 
 ---
@@ -58,7 +102,7 @@ after training to fill this section with the numbers from your run.
 ## Setup
 
 ```bash
-git clone <this repo> && cd pneumonia-detection-localization
+git clone https://github.com/samvithvaddiparthi-ship-it/ML_project.git && cd ML_project
 python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 pytest -q                                              # 6 unit tests for the metrics / CAM code
