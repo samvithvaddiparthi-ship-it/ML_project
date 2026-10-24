@@ -19,8 +19,10 @@ def tables(R: dict) -> str:
     ds = R.get("dataset", {})
     s = ["## Results", ""]
     if ds:
-        s += [f"Test split of the RSNA data ({sum(ds['split_counts']['test'].values()):,} images; "
-              f"total {ds['n_images']:,} images, {ds['n_boxes']:,} boxes). "
+        t = ds['split_counts']['test']
+        s += [f"Held-out test split: {sum(t.values()):,} images in the full setting, "
+              f"{t.get('Normal', 0) + t.get('Lung Opacity', 0):,} in the paper setting "
+              f"(dataset: {ds['n_images']:,} images, {ds['n_boxes']:,} boxes). "
               "Every threshold was chosen on the validation split.", ""]
     for setting, cl in R.get("classification", {}).items():
         s += [f"### Classification - {SETTING.get(setting, setting)}", "",
